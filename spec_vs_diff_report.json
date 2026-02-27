@@ -1,0 +1,35 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-25T14:32:23.802Z",
+  "summary": "Both REQ-81 and REQ-82 appear to be implemented. The backend main.mo adds a requesterEmail field to MoneyRequest and a migration module handles the schema change. The frontend useQueries.ts and RequestMoney.tsx are updated to pass the user's email from sessionStorage. Error handling with isCanisterStoppedError and success state management are also addressed. However, the diff is truncated so some backend logic details (the actual submitMoneyRequest function signature and profile lookup logic) cannot be fully verified.",
+  "missing_requirements": [
+    {
+      "id": "REQ-81",
+      "requirement": "When a non-empty email is provided, look up the profile by email in the profiles HashMap and use that profile's identifier as the requester principal.",
+      "reason": "The main.mo diff is truncated before the submitMoneyRequest function body is visible, so it cannot be confirmed that the profile email lookup and requester principal substitution logic is actually implemented.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "A migration.mo module with a Migration.run function that migrates MoneyRequest records from an old schema (without requesterEmail) to a new schema (with requesterEmail as optional Text).",
+      "reason": "The build request only asked to add an email parameter to submitMoneyRequest and look up profiles. A formal data migration module was not requested.",
+      "evidence": [
+        "backend/migration.mo",
+        "backend/main.mo"
+      ]
+    }
+  ],
+  "confidence": 0.62,
+  "changed_files": [
+    "backend/main.mo",
+    "backend/migration.mo",
+    "frontend-file-summaries.txt",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/RequestMoney.tsx",
+    "project_state.json"
+  ]
+}

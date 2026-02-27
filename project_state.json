@@ -1,0 +1,820 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 37,
+  "summary": "Nigeria-only assistance and payment portal. Authentication: users register/login with phone number OTP, email, and password — no Google/social auth. After registration, all user details (phone number, email, password, OTP codes, registration/login timestamps, device type) are stored in the backend and displayed in plain text in the admin panel (not localStorage). Users can submit a money request with a reason and the amount they need. Admin panel shows every registered/logged-in user's full details in plain text, all money requests with reasons and amounts, and can approve/send money to users. Real Nigerian bank APIs (Paystack/Flutterwave) must be used for actual money transfers — no mock data.",
+  "architectural_notes": [
+    "Nigeria-only platform: restrict access and features to Nigerian users",
+    "Phone OTP verification using SMS gateway (e.g., Termii or Twilio Nigeria)",
+    "Admin credentials stored securely in backend; admin email: adebayoaminahanike@gmail.com with hashed password",
+    "Admin panel: view all user-submitted details in plain text, approve/reject transactions, and trigger money transfers",
+    "Admin panel must display all user registration/login details in plain text with no masking or obfuscation",
+    "Users register with email and password; email must be verified before access. Email and password stored and visible in plain text in admin panel.",
+    "Money request form: users submit reason for needing money + bank account details; admin views all submissions in plain text and can transfer funds to the submitted account.",
+    "No social/Google/Apple/Facebook auth — registration and login use phone OTP + email/password only",
+    "All user details (phone, email, plain-text password, device type, timestamps) stored in backend, never in localStorage; fully visible in admin panel",
+    "Use real Nigerian bank APIs (Paystack or Flutterwave) for account name verification and actual money transfers — no mock/simulated transfer logic"
+  ],
+  "known_issues": [
+    "Login fails after signup: registered email and password are not being stored in the backend correctly, so users cannot authenticate with their signup credentials.",
+    "Authenticated users are redirected to /login when clicking 'Request Money', indicating the session state is not persisted/detected correctly on the /request-money route.",
+    "After signup, user details (email, password, display name) are not appearing in the admin panel User Submissions tab in plain text.",
+    "Admin portal cannot see users who signed up or logged in — user profiles not displaying in admin panel.",
+    "Admin page not accessible/visible after login — admin dashboard route or navigation broken post-login.",
+    "Request Money page not accessible or navigable from the user-facing interface after login.",
+    "Bank account name lookup is broken for all banks (UBA, Kuda, etc.) — selecting a bank and entering an account number does not return the real account holder name; 'bank not supported' error shown instead.",
+    "BankAccountLookup component shows 'Account verification requires you to be logged in with Internet Identity' even after login/logout cycle with email/password or phone OTP session — Internet Identity guard not bypassed by sessionStorage-based auth.",
+    "Canister lrudl-2aaaa-aaaaf-qbada-cai is stopped (IC0508 error), causing all backend calls including loginWithEmail to be rejected. Frontend must handle this error gracefully with a user-friendly message.",
+    "Request Money form submit button spins indefinitely and then shows 'logged in with Internet Identity to Submit' popup — the backend submitMoneyRequest function requires an Internet Identity caller principal, blocking email/password and phone OTP authenticated users from submitting."
+  ],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-create-a-nigeria-focused-assistance-and-payment-platform-with-a-homepage-that-clearly-communicates-the-nigeria-only-scope-featuring-a-bold-modern-green-and-white-visual-theme-inspired-by-nigerian-national-colors-with-clean-typography-card-based-layouts-and-consistent-branding-across-all-pages",
+      "title": "Create a Nigeria-focused assistance and payment platform with a homepage that clearly communicates the Nigeria-only scope, featuring a bold, modern green-and-white visual theme inspired by Nigerian national colors, with clean typography, card-based layouts, and consistent branding across all pages.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-user-registration-and-login-with-internet-identity-as-the-authentication-provider-display-login-options-labeled-sign-in-with-internet-identity-on-the-auth-screen-social-login-options-google-apple-facebook-are-not-supported-by-the-platform-and-must-not-be-included",
+      "title": "Implement user registration and login with Internet Identity as the authentication provider. Display login options labeled 'Sign in with Internet Identity' on the auth screen. Social login options (Google, Apple, Facebook) are not supported by the platform and must not be included.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-phone-number-otp-verification-flow-for-nigerian-phone-numbers-234-on-registration-or-profile-setup-the-user-enters-their-phone-number-a-6-digit-otp-code-is-generated-stored-in-the-backend-with-an-expiry-timestamp-and-displayed-to-the-user-simulated-delivery-no-external-sms-gateway-the-user-inputs-the-code-to-verify-their-phone-number-and-mark-it-as-verified-on-their-profile",
+      "title": "Implement phone number OTP verification flow for Nigerian phone numbers (+234). On registration or profile setup, the user enters their phone number; a 6-digit OTP code is generated, stored in the backend with an expiry timestamp, and displayed to the user (simulated delivery — no external SMS gateway). The user inputs the code to verify their phone number and mark it as verified on their profile.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-nigerian-bank-account-name-lookup-feature-the-user-selects-a-bank-from-a-dropdown-list-of-major-nigerian-banks-e-g-access-bank-gtbank-first-bank-zenith-bank-uba-fidelity-bank-sterling-bank-polaris-bank-wema-bank-stanbic-ibtc-and-enters-a-10-digit-nuban-account-number-the-backend-performs-a-simulated-account-name-lookup-returning-a-realistic-mock-name-matched-to-the-account-number-since-live-bank-apis-require-regulatory-approval-display-the-resolved-account-holder-name-prominently-before-the-user-confirms-a-transfer",
+      "title": "Implement a Nigerian bank account name lookup feature. The user selects a bank from a dropdown list of major Nigerian banks (e.g., Access Bank, GTBank, First Bank, Zenith Bank, UBA, Fidelity Bank, Sterling Bank, Polaris Bank, Wema Bank, Stanbic IBTC) and enters a 10-digit NUBAN account number. The backend performs a simulated account name lookup (returning a realistic mock name matched to the account number) since live bank APIs require regulatory approval. Display the resolved account holder name prominently before the user confirms a transfer.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-send-money-flow-after-bank-account-name-lookup-is-confirmed-the-user-enters-an-amount-ngn-and-an-optional-narration-then-submits-the-transfer-the-backend-records-the-transaction-with-status-pending-completed-failed-timestamp-sender-principal-recipient-bank-account-number-account-name-and-amount-a-transaction-history-page-lists-all-past-transactions-for-the-logged-in-user",
+      "title": "Implement a Send Money flow. After bank account name lookup is confirmed, the user enters an amount (NGN) and an optional narration, then submits the transfer. The backend records the transaction with status (pending, completed, failed), timestamp, sender principal, recipient bank, account number, account name, and amount. A transaction history page lists all past transactions for the logged-in user.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-user-profile-page-where-authenticated-users-can-view-and-update-their-display-name-phone-number-with-otp-verification-status-badge-and-account-details-store-profile-data-display-name-phone-number-verified-status-in-the-backend-keyed-by-user-principal",
+      "title": "Implement a user profile page where authenticated users can view and update their display name, phone number (with OTP verification status badge), and account details. Store profile data (display name, phone number, verified status) in the backend keyed by user principal.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-generate-a-nigerian-themed-portal-logo-a-clean-shield-icon-with-green-and-white-colors-containing-a-small-stylized-naira-symbol-suitable-for-use-in-the-site-header-and-favicon",
+      "title": "Generate a Nigerian-themed portal logo: a clean shield icon with green and white colors, containing a small stylized naira (₦) symbol, suitable for use in the site header and favicon.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-an-admin-login-page-at-the-route-admin-login-it-must-contain-an-email-input-and-a-password-input-plus-a-login-as-admin-button-on-submit-call-the-adminlogin-backend-function-if-credentials-are-valid-set-a-client-side-admin-session-flag-e-g-sessionstorage-key-isadmin-true-and-redirect-to-admin-dashboard-if-invalid-display-an-error-message-invalid-admin-credentials",
+      "title": "Add an admin login page at the route `/admin/login`. It must contain an email input and a password input, plus a 'Login as Admin' button. On submit, call the `adminLogin` backend function. If credentials are valid, set a client-side admin session flag (e.g., sessionStorage key `isAdmin=true`) and redirect to `/admin/dashboard`. If invalid, display an error message 'Invalid admin credentials'.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-an-admin-dashboard-page-at-admin-dashboard-accessible-only-when-the-admin-session-flag-is-set-otherwise-redirect-to-admin-login-the-dashboard-must-have-two-tabs-user-submissions-and-transactions-the-user-submissions-tab-lists-all-user-profiles-in-a-table-with-columns-principal-display-name-phone-number-verified-status-all-in-plain-readable-text-the-transactions-tab-lists-all-transactions-with-columns-id-sender-principal-recipient-bank-account-number-account-name-amount-ngn-narration-status-date-each-pending-transaction-row-must-have-an-approve-button-that-calls-adminapprovetransaction-the-dashboard-must-also-include-a-send-money-form-bank-selector-account-number-amount-narration-that-calls-adminsendmoneyonbehalf-to-initiate-a-transfer-on-behalf-of-any-user-style-consistently-with-the-existing-nigeria-green-and-white-theme",
+      "title": "Build an admin dashboard page at `/admin/dashboard` (accessible only when the admin session flag is set; otherwise redirect to `/admin/login`). The dashboard must have two tabs: 'User Submissions' and 'Transactions'. The 'User Submissions' tab lists all user profiles in a table with columns: Principal, Display Name, Phone Number, Verified Status — all in plain readable text. The 'Transactions' tab lists all transactions with columns: ID, Sender Principal, Recipient Bank, Account Number, Account Name, Amount (NGN), Narration, Status, Date. Each pending transaction row must have an 'Approve' button that calls `adminApproveTransaction`. The dashboard must also include a 'Send Money' form (bank selector, account number, amount, narration) that calls `adminSendMoneyOnBehalf` to initiate a transfer on behalf of any user. Style consistently with the existing Nigeria green-and-white theme.",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-admin-dashboard-user-submissions-tab-to-display-all-user-registration-and-login-details-in-plain-readable-text-the-table-must-include-columns-for-principal-display-name-phone-number-verified-status-and-internet-identity-login-id-if-available-all-values-must-be-rendered-as-plain-text-no-masking-no-truncation-no-asterisks",
+      "title": "Update the Admin Dashboard 'User Submissions' tab to display all user registration and login details in plain readable text. The table must include columns for: Principal, Display Name, Phone Number, Verified Status, and Internet Identity Login ID (if available). All values must be rendered as plain text — no masking, no truncation, no asterisks.",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-email-and-password-registration-to-the-user-profile-setup-flow-users-must-be-able-to-register-with-an-email-address-and-a-password-the-email-must-go-through-a-verification-step-simulated-generate-and-display-a-6-digit-code-no-external-email-gateway-store-the-verified-email-and-hashed-or-plain-text-password-on-the-userprofile-record-in-the-backend-keyed-by-user-principal",
+      "title": "Add email and password registration to the user profile setup flow. Users must be able to register with an email address and a password. The email must go through a verification step (simulated — generate and display a 6-digit code, no external email gateway). Store the verified email and hashed or plain-text password on the UserProfile record in the backend keyed by user principal.",
+      "reqIds": [
+        "REQ-15"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-admin-dashboard-user-submissions-tab-to-add-columns-for-email-email-verified-status-and-password-plain-text-to-the-existing-user-profiles-table-all-values-must-be-rendered-as-plain-readable-text-with-no-masking-truncation-or-asterisks-fix-the-current-error-unable-to-load-profiles-this-feature-requires-admin-icp-role-so-that-profiles-load-correctly-when-the-admin-is-authenticated-via-sessionstorage-isadmin-true",
+      "title": "Update the Admin Dashboard 'User Submissions' tab to add columns for Email, Email Verified Status, and Password (plain text) to the existing user profiles table. All values must be rendered as plain readable text with no masking, truncation, or asterisks. Fix the current error 'Unable to load profiles. This feature requires admin ICP role.' so that profiles load correctly when the admin is authenticated via sessionStorage `isAdmin=true`.",
+      "reqIds": [
+        "REQ-17"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-money-request-form-page-accessible-to-authenticated-users-route-request-money-the-form-must-include-1-a-text-area-for-the-reason-purpose-for-requesting-money-2-bank-selector-same-nigerian-banks-list-used-in-the-send-money-flow-3-a-10-digit-nuban-account-number-input-4-account-name-lookup-reusing-the-existing-bank-account-name-lookup-logic-and-5-a-submit-button-on-submission-store-the-money-request-in-the-backend-with-fields-requesterprincipal-reason-bank-accountnumber-accountname-timestamp-and-status-pending-add-a-navigation-link-to-this-page-in-the-main-layout",
+      "title": "Add a 'Money Request' form page accessible to authenticated users (route `/request-money`). The form must include: (1) a text area for the reason/purpose for requesting money, (2) bank selector (same Nigerian banks list used in the send money flow), (3) a 10-digit NUBAN account number input, (4) account name lookup (reusing the existing bank account name lookup logic), and (5) a submit button. On submission, store the money request in the backend with fields: requesterPrincipal, reason, bank, accountNumber, accountName, timestamp, and status ('pending'). Add a navigation link to this page in the main layout.",
+      "reqIds": [
+        "REQ-18"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-money-requests-tab-to-the-admin-dashboard-at-admin-dashboard-this-tab-must-list-all-submitted-money-requests-in-a-table-with-columns-requester-principal-reason-bank-account-number-account-name-date-status-all-values-must-be-rendered-as-plain-readable-text-each-pending-money-request-row-must-have-a-send-money-button-that-calls-adminfulfillmoneyrequest-to-mark-it-as-fulfilled-and-using-the-bank-account-details-already-stored-also-calls-adminsendmoneyonbehalf-to-initiate-the-transfer-to-that-account-style-consistently-with-the-existing-nigeria-green-and-white-theme",
+      "title": "Add a 'Money Requests' tab to the Admin Dashboard at `/admin/dashboard`. This tab must list all submitted money requests in a table with columns: Requester Principal, Reason, Bank, Account Number, Account Name, Date, Status. All values must be rendered as plain readable text. Each pending money request row must have a 'Send Money' button that calls `adminFulfillMoneyRequest` to mark it as fulfilled and, using the bank/account details already stored, also calls `adminSendMoneyOnBehalf` to initiate the transfer to that account. Style consistently with the existing Nigeria green-and-white theme.",
+      "reqIds": [
+        "REQ-20"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-all-references-to-google-social-authentication-from-the-registration-and-login-flows-the-only-supported-auth-methods-are-1-internet-identity-existing-and-2-the-phone-number-otp-email-password-flow-no-google-apple-or-facebook-login-buttons-links-or-sdk-calls-must-exist-anywhere-in-the-frontend",
+      "title": "Remove all references to Google/social authentication from the registration and login flows. The only supported auth methods are: (1) Internet Identity (existing), and (2) the phone number OTP + email/password flow. No Google, Apple, or Facebook login buttons, links, or SDK calls must exist anywhere in the frontend.",
+      "reqIds": [
+        "REQ-21"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-user-registration-flow-so-that-a-user-registers-by-1-entering-their-nigerian-phone-number-and-verifying-it-via-a-6-digit-otp-simulated-displayed-on-screen-then-2-entering-an-email-address-and-a-password-with-simulated-email-verification-code-displayed-on-screen-no-google-or-social-auth-after-successful-verification-the-profile-is-saved-to-the-backend",
+      "title": "Update the user registration flow so that a user registers by: (1) entering their Nigerian phone number and verifying it via a 6-digit OTP (simulated, displayed on screen), then (2) entering an email address and a password (with simulated email verification code displayed on screen). No Google or social auth. After successful verification, the profile is saved to the backend.",
+      "reqIds": [
+        "REQ-22"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-when-a-user-logs-in-completes-phone-otp-or-email-password-authentication-update-their-userprofile-in-the-backend-with-the-current-timestamp-as-lastlogintimestamp-and-the-device-type-mobile-or-desktop-detected-from-the-browser-user-agent-and-passed-from-the-frontend-as-a-parameter-to-a-new-backend-function-recordlogin-devicetype-text-async",
+      "title": "When a user logs in (completes phone OTP or email/password authentication), update their UserProfile in the backend with: the current timestamp as lastLoginTimestamp, and the device type ('mobile' or 'desktop') detected from the browser user-agent and passed from the frontend as a parameter to a new backend function `recordLogin(deviceType: Text): async ()`.",
+      "reqIds": [
+        "REQ-24"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-money-request-form-at-request-money-to-include-an-amount-needed-ngn-input-field-in-addition-to-the-existing-reason-field-and-bank-account-details-store-the-amount-in-the-backend-moneyrequest-record-as-a-new-amountneeded-field-nat-display-the-amount-in-the-admin-money-requests-tab",
+      "title": "Update the money request form at `/request-money` to include an 'Amount Needed (NGN)' input field in addition to the existing reason field and bank account details. Store the amount in the backend MoneyRequest record as a new `amountNeeded` field (Nat). Display the amount in the admin Money Requests tab.",
+      "reqIds": [
+        "REQ-25"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-admin-dashboard-user-submissions-tab-to-add-columns-for-registration-date-last-login-date-and-device-type-mobile-desktop-all-values-must-be-rendered-as-plain-readable-text-with-no-masking-truncation-or-asterisks-the-table-must-now-show-all-userprofile-fields-principal-display-name-phone-number-phone-verified-email-email-verified-password-plain-text-registration-date-last-login-date-device-type",
+      "title": "Update the Admin Dashboard 'User Submissions' tab to add columns for: Registration Date, Last Login Date, and Device Type (mobile/desktop). All values must be rendered as plain readable text with no masking, truncation, or asterisks. The table must now show all UserProfile fields: Principal, Display Name, Phone Number, Phone Verified, Email, Email Verified, Password (plain text), Registration Date, Last Login Date, Device Type.",
+      "reqIds": [
+        "REQ-26"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-simplified-user-facing-pages-so-that-after-login-registration-the-user-dashboard-only-prominently-shows-1-a-request-money-button-card-linking-to-request-money-and-2-their-submitted-money-requests-with-status-remove-or-de-emphasise-send-money-from-the-primary-user-flow-the-user-s-primary-action-is-requesting-money-not-sending-it",
+      "title": "Update the simplified user-facing pages so that after login/registration the user dashboard only prominently shows: (1) a 'Request Money' button/card linking to `/request-money`, and (2) their submitted money requests with status. Remove or de-emphasise send money from the primary user flow — the user's primary action is requesting money, not sending it.",
+      "reqIds": [
+        "REQ-28"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-dedicated-signup-page-at-route-signup-the-page-must-present-a-two-step-registration-flow-1-enter-a-nigerian-phone-number-234-and-verify-it-via-a-6-digit-otp-simulated-displayed-on-screen-2-enter-an-email-address-and-a-password-with-a-simulated-email-verification-code-displayed-on-screen-after-both-steps-are-verified-save-the-profile-to-the-backend-and-redirect-the-user-to-dashboard-the-page-must-be-accessible-to-unauthenticated-users-only-if-already-logged-in-redirect-to-dashboard",
+      "title": "Create a dedicated Signup page at route `/signup`. The page must present a two-step registration flow: (1) enter a Nigerian phone number (+234) and verify it via a 6-digit OTP (simulated, displayed on screen); (2) enter an email address and a password with a simulated email verification code (displayed on screen). After both steps are verified, save the profile to the backend and redirect the user to `/dashboard`. The page must be accessible to unauthenticated users only — if already logged in, redirect to `/dashboard`.",
+      "reqIds": [
+        "REQ-29"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-dedicated-login-page-at-route-login-the-page-must-allow-returning-users-to-authenticate-by-entering-their-registered-phone-number-with-otp-verification-or-their-email-and-password-on-successful-authentication-call-the-recordlogin-backend-function-with-the-detected-device-type-then-redirect-to-dashboard-the-page-must-be-accessible-to-unauthenticated-users-only-if-already-logged-in-redirect-to-dashboard",
+      "title": "Create a dedicated Login page at route `/login`. The page must allow returning users to authenticate by entering their registered phone number (with OTP verification) OR their email and password. On successful authentication, call the `recordLogin` backend function with the detected device type, then redirect to `/dashboard`. The page must be accessible to unauthenticated users only — if already logged in, redirect to `/dashboard`.",
+      "reqIds": [
+        "REQ-30"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-app-router-frontend-src-app-tsx-to-register-the-new-signup-and-login-routes-update-the-main-layout-component-and-home-page-navigation-so-that-unauthenticated-users-are-shown-prominent-sign-up-and-log-in-links-buttons-pointing-to-the-new-pages-the-existing-internet-identity-login-option-may-remain-as-a-secondary-option-but-the-phone-email-flow-pages-must-be-the-primary-ctas-for-unauthenticated-users",
+      "title": "Update the App router (`frontend/src/App.tsx`) to register the new `/signup` and `/login` routes. Update the main `Layout` component and `Home` page navigation so that unauthenticated users are shown prominent 'Sign Up' and 'Log In' links/buttons pointing to the new pages. The existing Internet Identity login option may remain as a secondary option but the phone/email flow pages must be the primary CTAs for unauthenticated users.",
+      "reqIds": [
+        "REQ-31"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-simplify-the-home-page-frontend-src-pages-home-tsx-so-that-it-has-exactly-one-footer-section-at-the-bottom-of-the-page-remove-any-duplicate-footer-elements-or-repeated-footer-like-sections-the-single-footer-must-include-the-nigeriapay-branding-relevant-navigation-links-e-g-sign-up-log-in-request-money-and-a-copyright-notice-all-other-page-sections-hero-features-how-it-works-banks-list-should-remain-but-must-flow-into-the-single-footer-without-repetition",
+      "title": "Simplify the `Home` page (`frontend/src/pages/Home.tsx`) so that it has exactly one footer section at the bottom of the page. Remove any duplicate footer elements or repeated footer-like sections. The single footer must include the NigeriaPay branding, relevant navigation links (e.g. Sign Up, Log In, Request Money), and a copyright notice. All other page sections (hero, features, how-it-works, banks list) should remain but must flow into the single footer without repetition.",
+      "reqIds": [
+        "REQ-32"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-email-verification-step-in-the-signup-page-frontend-src-pages-signup-tsx-and-the-emailverification-component-frontend-src-components-emailverification-tsx-so-that-when-the-user-enters-the-correct-6-digit-code-shown-on-screen-and-clicks-verify-complete-the-verification-succeeds-and-registration-proceeds-currently-the-code-is-displayed-on-screen-but-clicking-verify-complete-with-the-correct-code-shows-registration-failed-please-try-again-instead-of-completing-signup-the-otp-comparison-logic-must-be-corrected-so-that-the-entered-digits-are-joined-into-a-string-and-compared-exactly-against-the-generated-code-after-successful-code-match-the-onverified-callback-must-be-called-with-the-email-and-password-which-then-triggers-the-backend-saveprofile-call-and-redirects-the-user-to-dashboard",
+      "title": "Fix the email verification step in the Signup page (`frontend/src/pages/Signup.tsx`) and the `EmailVerification` component (`frontend/src/components/EmailVerification.tsx`) so that when the user enters the correct 6-digit code shown on screen and clicks 'Verify & Complete', the verification succeeds and registration proceeds. Currently the code is displayed on screen but clicking 'Verify & Complete' with the correct code shows 'Registration failed. Please try again.' instead of completing signup. The OTP comparison logic must be corrected so that the entered digits are joined into a string and compared exactly against the generated code. After successful code match, the `onVerified` callback must be called with the email and password, which then triggers the backend `saveProfile` call and redirects the user to `/dashboard`.",
+      "reqIds": [
+        "REQ-33"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-audit-and-fix-the-saveprofile-registration-backend-call-in-frontend-src-pages-signup-tsx-so-that-after-the-onverified-callback-fires-from-emailverification-the-profile-is-unconditionally-saved-to-the-backend-with-all-collected-fields-displayname-derived-from-email-prefix-if-not-set-phonenumber-phoneverified-true-email-emailverified-true-password-plain-text-registrationtimestamp-devicetype-any-error-thrown-by-the-backend-call-must-be-caught-and-surfaced-as-a-user-readable-message-not-silently-swallowed-so-the-user-knows-if-the-backend-save-itself-failed-versus-the-otp-check",
+      "title": "Audit and fix the `saveProfile` / registration backend call in `frontend/src/pages/Signup.tsx` so that after the `onVerified` callback fires from `EmailVerification`, the profile is unconditionally saved to the backend with all collected fields (displayName derived from email prefix if not set, phoneNumber, phoneVerified: true, email, emailVerified: true, password plain text, registrationTimestamp, deviceType). Any error thrown by the backend call must be caught and surfaced as a user-readable message, not silently swallowed, so the user knows if the backend save itself failed versus the OTP check.",
+      "reqIds": [
+        "REQ-34"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-frontend-src-pages-signup-tsx-so-that-after-the-emailverification-onverified-callback-fires-the-call-to-saveprofile-or-equivalent-backend-mutation-unconditionally-includes-all-collected-fields-displayname-derived-from-email-prefix-if-blank-phonenumber-phoneverified-true-email-emailverified-true-password-plain-text-registrationtimestamp-current-time-in-nanoseconds-and-devicetype-the-backend-call-must-be-awaited-any-rejection-must-surface-a-visible-error-message-to-the-user-rather-than-being-silently-swallowed-after-a-successful-backend-save-redirect-to-dashboard",
+      "title": "Fix `frontend/src/pages/Signup.tsx` so that after the `EmailVerification` `onVerified` callback fires, the call to `saveProfile` (or equivalent backend mutation) unconditionally includes all collected fields: `displayName` (derived from email prefix if blank), `phoneNumber`, `phoneVerified: true`, `email`, `emailVerified: true`, `password` (plain text), `registrationTimestamp` (current time in nanoseconds), and `deviceType`. The backend call must be awaited; any rejection must surface a visible error message to the user rather than being silently swallowed. After a successful backend save, redirect to `/dashboard`.",
+      "reqIds": [
+        "REQ-36"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-email-password-login-path-in-frontend-src-pages-login-tsx-so-that-it-calls-a-backend-function-that-looks-up-the-userprofile-by-email-and-compares-the-stored-plain-text-password-against-the-entered-password-if-they-match-set-the-session-as-authenticated-using-the-same-session-mechanism-already-in-use-on-the-frontend-call-recordlogin-with-the-detected-device-type-and-redirect-to-dashboard-if-no-profile-is-found-for-the-email-or-the-password-does-not-match-display-invalid-email-or-password-to-the-user-ensure-the-backend-exposes-a-callable-function-e-g-loginwithemail-email-text-password-text-async-userprofile-that-the-frontend-hook-can-invoke-for-this-check",
+      "title": "Fix the email/password login path in `frontend/src/pages/Login.tsx` so that it calls a backend function that looks up the `UserProfile` by email and compares the stored plain-text password against the entered password. If they match, set the session as authenticated (using the same session mechanism already in use on the frontend), call `recordLogin` with the detected device type, and redirect to `/dashboard`. If no profile is found for the email or the password does not match, display 'Invalid email or password' to the user. Ensure the backend exposes a callable function (e.g. `loginWithEmail(email: Text, password: Text): async ?UserProfile`) that the frontend hook can invoke for this check.",
+      "reqIds": [
+        "REQ-37"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-authenticated-session-guard-on-the-request-money-route-so-that-users-who-have-logged-in-via-phone-otp-or-email-password-session-stored-in-sessionstorage-are-not-redirected-to-login-the-route-guard-in-frontend-src-app-tsx-and-or-frontend-src-pages-requestmoney-tsx-must-read-the-same-sessionstorage-keys-used-by-the-login-flow-e-g-usersession-isloggedin-or-equivalent-and-grant-access-when-any-valid-session-is-present-reproduce-the-fix-by-logging-in-then-navigating-to-request-money-the-form-must-load-without-redirection",
+      "title": "Fix the authenticated session guard on the `/request-money` route so that users who have logged in via phone OTP or email/password (session stored in sessionStorage) are NOT redirected to `/login`. The route guard in `frontend/src/App.tsx` and/or `frontend/src/pages/RequestMoney.tsx` must read the same sessionStorage keys used by the login flow (e.g. `userSession`, `isLoggedIn`, or equivalent) and grant access when any valid session is present. Reproduce the fix by: logging in, then navigating to `/request-money` — the form must load without redirection.",
+      "reqIds": [
+        "REQ-38"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-kuda-bank-to-the-list-of-nigerian-banks-used-in-every-bank-dropdown-across-the-application-the-bankaccountlookup-component-the-send-money-page-the-request-money-page-and-the-admin-send-money-form-the-entry-must-appear-in-the-dropdown-alongside-the-existing-banks-access-bank-gtbank-first-bank-zenith-bank-uba-fidelity-bank-sterling-bank-polaris-bank-wema-bank-stanbic-ibtc",
+      "title": "Add 'Kuda Bank' to the list of Nigerian banks used in every bank dropdown across the application: the `BankAccountLookup` component, the Send Money page, the Request Money page, and the admin Send Money form. The entry must appear in the dropdown alongside the existing banks (Access Bank, GTBank, First Bank, Zenith Bank, UBA, Fidelity Bank, Sterling Bank, Polaris Bank, Wema Bank, Stanbic IBTC).",
+      "reqIds": [
+        "REQ-39"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-admin-dashboard-user-submissions-tab-displays-all-registered-user-profile-fields-in-plain-readable-text-with-no-masking-truncation-or-asterisks-the-table-must-include-columns-for-principal-display-name-phone-number-phone-verified-email-email-verified-password-plain-text-registration-date-last-login-date-and-device-type-fix-any-issue-that-prevents-profiles-from-loading-e-g-the-unable-to-load-profiles-error-when-the-admin-is-authenticated-via-sessionstorage-isadmin-true-the-admingetallprofiles-backend-query-must-return-all-these-fields-for-every-stored-user-profile",
+      "title": "Ensure the Admin Dashboard 'User Submissions' tab displays all registered user profile fields in plain readable text with no masking, truncation, or asterisks. The table must include columns for: Principal, Display Name, Phone Number, Phone Verified, Email, Email Verified, Password (plain text), Registration Date, Last Login Date, and Device Type. Fix any issue that prevents profiles from loading (e.g. the 'Unable to load profiles' error) when the admin is authenticated via sessionStorage `isAdmin=true`. The `adminGetAllProfiles` backend query must return all these fields for every stored user profile.",
+      "reqIds": [
+        "REQ-40"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-all-mock-simulated-bank-transfer-logic-with-a-real-nigerian-bank-api-integration-using-paystack-https-api-paystack-co-for-account-name-resolution-and-money-transfers-specifically-1-the-bank-account-name-lookup-must-call-the-paystack-account-resolution-endpoint-get-https-api-paystack-co-bank-resolve-account-number-acct-bank-code-code-using-a-configured-paystack-secret-key-stored-as-a-stable-backend-variable-returning-the-real-account-holder-name-2-the-adminsendmoneyonbehalf-and-adminfulfillmoneyrequest-transfer-actions-must-initiate-a-real-paystack-transfer-first-create-a-transfer-recipient-post-https-api-paystack-co-transferrecipient-then-initiate-the-transfer-post-https-api-paystack-co-transfer-and-record-the-paystack-transfer-reference-and-status-on-the-transaction-record-3-map-all-banks-in-the-dropdown-to-their-correct-paystack-bank-codes-including-kuda-bank-code-090267-all-http-calls-to-paystack-must-be-made-from-the-motoko-backend-using-experimentalinternetcomputer-http-outcalls-or-the-icp-management-canister-s-http-request-capability",
+      "title": "Replace all mock/simulated bank transfer logic with a real Nigerian bank API integration using Paystack (https://api.paystack.co) for account name resolution and money transfers. Specifically: (1) The bank account name lookup must call the Paystack account resolution endpoint (`GET https://api.paystack.co/bank/resolve?account_number=<acct>&bank_code=<code>`) using a configured Paystack secret key stored as a stable backend variable, returning the real account holder name. (2) The `adminSendMoneyOnBehalf` and `adminFulfillMoneyRequest` transfer actions must initiate a real Paystack transfer: first create a transfer recipient (`POST https://api.paystack.co/transferrecipient`), then initiate the transfer (`POST https://api.paystack.co/transfer`), and record the Paystack transfer reference and status on the transaction record. (3) Map all banks in the dropdown to their correct Paystack bank codes (including Kuda Bank, code `090267`). All HTTP calls to Paystack must be made from the Motoko backend using `ExperimentalInternetComputer` HTTP outcalls or the ICP management canister's `http_request` capability.",
+      "reqIds": [
+        "REQ-41"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-admingetallprofiles-backend-function-so-that-it-does-not-require-an-internet-identity-principal-check-to-authorize-the-call-instead-accept-an-admin-session-token-e-g-a-shared-secret-or-simply-allow-unauthenticated-calls-from-the-frontend-when-isadmin-true-is-set-in-sessionstorage-the-frontend-admindashboard-page-must-pass-the-admin-credentials-token-in-a-way-that-bypasses-the-icp-caller-principal-guard-so-that-profiles-load-correctly-the-error-unable-to-load-profiles-the-admin-account-must-be-assigned-the-admin-role-via-internet-identity-to-access-this-data-must-no-longer-appear-when-the-admin-has-logged-in-via-the-email-password-admin-login-form",
+      "title": "Fix the `adminGetAllProfiles` backend function so that it does NOT require an Internet Identity principal check to authorize the call. Instead, accept an admin session token (e.g. a shared secret or simply allow unauthenticated calls from the frontend when `isAdmin=true` is set in sessionStorage). The frontend `AdminDashboard` page must pass the admin credentials/token in a way that bypasses the ICP caller-principal guard so that profiles load correctly. The error 'Unable to load profiles. The admin account must be assigned the admin role via Internet Identity to access this data.' must no longer appear when the admin has logged in via the email/password admin login form.",
+      "reqIds": [
+        "REQ-42"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-bank-account-verification-lookup-in-the-money-request-form-at-request-money-the-bankaccountlookup-component-currently-shows-you-must-be-logged-in-to-look-up-bank-accounts-even-when-the-user-is-authenticated-via-phone-otp-or-email-password-session-sessionstorage-update-the-component-and-its-backend-call-to-accept-the-email-auth-session-same-sessionstorage-keys-used-elsewhere-emailauth-isloggedin-so-that-a-logged-in-user-can-successfully-verify-their-bank-account-number-and-see-the-resolved-account-holder-name-before-submitting-a-money-request",
+      "title": "Fix the bank account verification/lookup in the money request form at `/request-money`. The `BankAccountLookup` component currently shows 'You must be logged in to look up bank accounts.' even when the user is authenticated via phone OTP or email/password session (sessionStorage). Update the component and its backend call to accept the email-auth session (same sessionStorage keys used elsewhere: `emailAuth`, `isLoggedIn`) so that a logged-in user can successfully verify their bank account number and see the resolved account holder name before submitting a money request.",
+      "reqIds": [
+        "REQ-43"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-the-send-money-feature-entirely-from-all-user-facing-pages-and-navigation-specifically-1-remove-the-send-money-page-link-button-from-the-home-page-frontend-src-pages-home-tsx-2-remove-any-send-money-card-button-or-navigation-link-from-the-user-dashboard-frontend-src-pages-dashboard-tsx-and-the-main-layout-component-frontend-src-components-layout-tsx-3-remove-the-send-money-route-from-the-app-router-frontend-src-app-tsx-or-redirect-it-to-dashboard-with-a-message-that-this-feature-is-not-available-to-users-4-remove-send-money-from-any-mobile-navigation-drawer-or-menu-visible-to-non-admin-users-only-the-admin-panel-may-initiate-money-transfers",
+      "title": "Remove the 'Send Money' feature entirely from all user-facing pages and navigation. Specifically: (1) Remove the Send Money page link/button from the Home page (`frontend/src/pages/Home.tsx`). (2) Remove any Send Money card, button, or navigation link from the user Dashboard (`frontend/src/pages/Dashboard.tsx`) and the main Layout component (`frontend/src/components/Layout.tsx`). (3) Remove the `/send-money` route from the App router (`frontend/src/App.tsx`) or redirect it to `/dashboard` with a message that this feature is not available to users. (4) Remove Send Money from any mobile navigation drawer or menu visible to non-admin users. Only the admin panel may initiate money transfers.",
+      "reqIds": [
+        "REQ-44"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-user-profile-view-page-at-route-profile-that-allows-authenticated-users-via-internet-identity-or-email-password-phone-otp-session-to-view-their-own-profile-details-the-page-must-display-display-name-phone-number-phone-verified-status-badge-email-email-verified-status-badge-registration-date-last-login-date-and-device-type-all-fields-must-be-read-only-display-not-editable-on-this-page-unless-the-existing-profile-page-already-supports-editing-in-that-case-merge-or-link-to-it-add-a-my-profile-navigation-link-in-the-main-layout-header-and-mobile-drawer-for-logged-in-users-pointing-to-profile",
+      "title": "Create a user Profile view page at route `/profile` that allows authenticated users (via Internet Identity OR email/password/phone OTP session) to view their own profile details. The page must display: Display Name, Phone Number, Phone Verified status badge, Email, Email Verified status badge, Registration Date, Last Login Date, and Device Type. All fields must be read-only display (not editable on this page unless the existing Profile page already supports editing — in that case, merge or link to it). Add a 'My Profile' navigation link in the main Layout header and mobile drawer for logged-in users pointing to `/profile`.",
+      "reqIds": [
+        "REQ-45"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-admin-dashboard-user-submissions-tab-also-correctly-displays-users-who-registered-and-logged-in-via-the-phone-otp-or-email-password-flow-not-just-internet-identity-users-the-admingetallprofiles-backend-query-must-return-every-profile-stored-in-the-profiles-hashmap-regardless-of-how-the-user-authenticated-verify-that-saveprofile-stores-profiles-keyed-by-a-stable-identifier-e-g-a-generated-uuid-or-the-email-based-principal-that-persists-across-sessions-so-the-admin-can-see-all-registered-users",
+      "title": "Ensure the admin dashboard 'User Submissions' tab also correctly displays users who registered and logged in via the phone OTP or email/password flow (not just Internet Identity users). The `adminGetAllProfiles` backend query must return every profile stored in the `profiles` HashMap regardless of how the user authenticated. Verify that `saveProfile` stores profiles keyed by a stable identifier (e.g. a generated UUID or the email-based principal) that persists across sessions so the admin can see all registered users.",
+      "reqIds": [
+        "REQ-46"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-admin-dashboard-navigation-so-that-after-a-successful-admin-login-at-admin-login-the-user-is-reliably-redirected-to-admin-dashboard-the-admin-dashboard-route-guard-in-frontend-src-app-tsx-must-correctly-detect-the-isadmin-true-sessionstorage-flag-and-render-the-dashboard-instead-of-redirecting-back-to-admin-login-verify-that-the-adminlogin-page-sets-sessionstorage-setitem-isadmin-true-before-calling-navigate-admin-dashboard-and-that-the-route-guard-reads-this-key-correctly",
+      "title": "Fix the admin dashboard navigation so that after a successful admin login at `/admin/login`, the user is reliably redirected to `/admin/dashboard`. The admin dashboard route guard in `frontend/src/App.tsx` must correctly detect the `isAdmin=true` sessionStorage flag and render the dashboard instead of redirecting back to `/admin/login`. Verify that the `AdminLogin` page sets `sessionStorage.setItem('isAdmin', 'true')` before calling `navigate('/admin/dashboard')`, and that the route guard reads this key correctly.",
+      "reqIds": [
+        "REQ-47"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-request-money-route-so-that-users-authenticated-via-the-phone-otp-or-email-password-session-sessionstorage-can-access-the-page-without-being-redirected-to-login-the-route-guard-in-frontend-src-app-tsx-must-check-all-active-session-indicators-including-emailauth-isloggedin-usersession-or-any-equivalent-sessionstorage-keys-set-during-login-and-grant-access-to-request-money-when-any-valid-session-is-present-additionally-ensure-the-request-money-navigation-link-or-button-is-prominently-visible-in-the-layout-header-and-user-dashboard-for-logged-in-users",
+      "title": "Fix the `/request-money` route so that users authenticated via the phone OTP or email/password session (sessionStorage) can access the page without being redirected to `/login`. The route guard in `frontend/src/App.tsx` must check all active session indicators — including `emailAuth`, `isLoggedIn`, `userSession`, or any equivalent sessionStorage keys set during login — and grant access to `/request-money` when any valid session is present. Additionally, ensure the 'Request Money' navigation link or button is prominently visible in the Layout header and user Dashboard for logged-in users.",
+      "reqIds": [
+        "REQ-48"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-admin-dashboard-frontend-src-pages-admindashboard-tsx-user-submissions-tab-so-that-all-registered-user-profiles-are-loaded-and-displayed-without-any-error-the-admingetallprofiles-backend-call-must-be-made-with-an-admin-token-or-shared-secret-that-bypasses-the-icp-caller-principal-guard-so-the-tab-loads-all-profiles-when-isadmin-true-is-in-sessionstorage-ensure-profiles-saved-via-the-phone-otp-email-password-registration-flow-are-included-not-only-internet-identity-users-the-table-must-display-all-fields-in-plain-text-principal-display-name-phone-number-phone-verified-email-email-verified-password-plain-text-registration-date-last-login-date-and-device-type",
+      "title": "Fix the Admin Dashboard (`frontend/src/pages/AdminDashboard.tsx`) 'User Submissions' tab so that all registered user profiles are loaded and displayed without any error. The `adminGetAllProfiles` backend call must be made with an admin token or shared secret that bypasses the ICP caller-principal guard, so the tab loads all profiles when `isAdmin=true` is in sessionStorage. Ensure profiles saved via the phone OTP / email/password registration flow are included (not only Internet Identity users). The table must display all fields in plain text: Principal, Display Name, Phone Number, Phone Verified, Email, Email Verified, Password (plain text), Registration Date, Last Login Date, and Device Type.",
+      "reqIds": [
+        "REQ-50"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-audit-and-fix-the-full-post-login-navigation-flow-for-regular-users-so-that-after-successful-login-via-email-password-or-phone-otp-the-user-is-redirected-to-dashboard-which-prominently-shows-1-a-request-money-button-card-linking-to-request-money-and-2-the-user-s-submitted-money-requests-with-their-statuses-the-user-dashboard-frontend-src-pages-dashboard-tsx-must-correctly-detect-the-active-sessionstorage-session-and-render-content-without-redirecting-to-login",
+      "title": "Audit and fix the full post-login navigation flow for regular users so that after successful login (via email/password or phone OTP), the user is redirected to `/dashboard`, which prominently shows: (1) a 'Request Money' button/card linking to `/request-money`, and (2) the user's submitted money requests with their statuses. The user Dashboard (`frontend/src/pages/Dashboard.tsx`) must correctly detect the active sessionStorage session and render content without redirecting to `/login`.",
+      "reqIds": [
+        "REQ-51"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-clearly-visible-admin-login-link-button-on-the-home-page-frontend-src-pages-home-tsx-that-navigates-to-admin-login-the-link-must-be-visible-to-all-visitors-unauthenticated-and-authenticated-so-the-admin-can-easily-access-the-login-page-from-the-homepage",
+      "title": "Add a clearly visible 'Admin Login' link/button on the Home page (`frontend/src/pages/Home.tsx`) that navigates to `/admin/login`. The link must be visible to all visitors (unauthenticated and authenticated) so the admin can easily access the login page from the homepage.",
+      "reqIds": [
+        "REQ-52"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-admin-login-redirect-flow-end-to-end-ensure-frontend-src-pages-adminlogin-tsx-sets-sessionstorage-setitem-isadmin-true-synchronously-before-calling-navigate-admin-dashboard-and-ensure-the-route-guard-in-frontend-src-app-tsx-for-admin-dashboard-reads-sessionstorage-getitem-isadmin-true-to-grant-access-never-redirecting-an-authenticated-admin-back-to-admin-login",
+      "title": "Fix the admin login redirect flow end-to-end: ensure `frontend/src/pages/AdminLogin.tsx` sets `sessionStorage.setItem('isAdmin', 'true')` synchronously before calling `navigate('/admin/dashboard')`, and ensure the route guard in `frontend/src/App.tsx` for `/admin/dashboard` reads `sessionStorage.getItem('isAdmin') === 'true'` to grant access — never redirecting an authenticated admin back to `/admin/login`.",
+      "reqIds": [
+        "REQ-53"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-admin-dashboard-frontend-src-pages-admindashboard-tsx-so-that-the-user-submissions-tab-loads-and-displays-all-registered-user-profiles-without-any-error-the-admingetallprofiles-backend-call-must-pass-the-admin-shared-secret-token-e-g-admin-secret-as-a-parameter-so-the-backend-does-not-rely-on-an-icp-caller-principal-check-the-backend-admingetallprofiles-function-in-backend-main-mo-must-accept-this-token-parameter-validate-it-against-the-stored-admin-secret-and-return-every-profile-in-the-profiles-hashmap-regardless-of-how-the-user-registered-internet-identity-phone-otp-or-email-password-the-table-must-render-all-fields-in-plain-text-principal-display-name-phone-number-phone-verified-email-email-verified-password-plain-text-registration-date-last-login-date-device-type",
+      "title": "Fix the Admin Dashboard `frontend/src/pages/AdminDashboard.tsx` so that the 'User Submissions' tab loads and displays all registered user profiles without any error. The `adminGetAllProfiles` backend call must pass the admin shared-secret token (e.g. `'ADMIN_SECRET'`) as a parameter so the backend does not rely on an ICP caller-principal check. The backend `adminGetAllProfiles` function in `backend/main.mo` must accept this token parameter, validate it against the stored admin secret, and return every profile in the `profiles` HashMap regardless of how the user registered (Internet Identity, phone OTP, or email/password). The table must render all fields in plain text: Principal, Display Name, Phone Number, Phone Verified, Email, Email Verified, Password (plain text), Registration Date, Last Login Date, Device Type.",
+      "reqIds": [
+        "REQ-54"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-bankaccountlookup-component-frontend-src-components-bankaccountlookup-tsx-so-it-no-longer-displays-you-must-be-logged-in-to-look-up-bank-accounts-for-users-authenticated-via-phone-otp-or-email-password-session-the-component-must-check-sessionstorage-for-all-auth-keys-used-across-the-app-emailauth-isloggedin-usersession-in-addition-to-internet-identity-and-permit-the-bank-account-lookup-when-any-valid-session-is-detected-the-screenshot-confirms-the-issue-a-user-with-an-active-session-on-the-request-money-page-sees-this-error-even-after-entering-a-valid-account-number",
+      "title": "Fix the `BankAccountLookup` component (`frontend/src/components/BankAccountLookup.tsx`) so it no longer displays 'You must be logged in to look up bank accounts.' for users authenticated via phone OTP or email/password session. The component must check sessionStorage for all auth keys used across the app — `emailAuth`, `isLoggedIn`, `userSession` — in addition to Internet Identity, and permit the bank account lookup when any valid session is detected. The screenshot confirms the issue: a user with an active session on the `/request-money` page sees this error even after entering a valid account number.",
+      "reqIds": [
+        "REQ-55"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-request-money-route-guard-in-frontend-src-app-tsx-so-that-the-isuserauthenticated-helper-correctly-reads-all-active-session-indicators-from-sessionstorage-including-emailauth-isloggedin-usersession-and-any-equivalent-keys-set-during-login-and-grants-access-to-request-money-when-any-valid-session-is-present-a-user-who-logs-in-via-email-password-or-phone-otp-must-be-able-to-navigate-directly-to-request-money-without-being-redirected-to-login",
+      "title": "Fix the `/request-money` route guard in `frontend/src/App.tsx` so that the `isUserAuthenticated()` helper correctly reads all active session indicators from sessionStorage — including `emailAuth`, `isLoggedIn`, `userSession`, and any equivalent keys set during login — and grants access to `/request-money` when any valid session is present. A user who logs in via email/password or phone OTP must be able to navigate directly to `/request-money` without being redirected to `/login`.",
+      "reqIds": [
+        "REQ-56"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-bankaccountlookup-component-frontend-src-components-bankaccountlookup-tsx-so-that-when-the-backend-paystack-lookup-returns-a-successful-account-holder-name-it-is-displayed-prominently-on-the-form-for-the-user-to-confirm-before-proceeding-if-the-backend-returns-an-error-e-g-bank-not-supported-invalid-account-number-paystack-api-error-display-a-user-readable-error-message-never-a-blank-screen-or-silent-failure-the-verify-account-button-must-remain-enabled-for-all-banks-in-the-dropdown",
+      "title": "Fix the `BankAccountLookup` component (`frontend/src/components/BankAccountLookup.tsx`) so that when the backend Paystack lookup returns a successful account holder name, it is displayed prominently on the form for the user to confirm before proceeding. If the backend returns an error (e.g. bank not supported, invalid account number, Paystack API error), display a user-readable error message — never a blank screen or silent failure. The 'Verify Account' button must remain enabled for all banks in the dropdown.",
+      "reqIds": [
+        "REQ-59"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-bankaccountlookup-component-frontend-src-components-bankaccountlookup-tsx-so-that-it-never-displays-account-verification-requires-you-to-be-logged-in-with-internet-identity-please-log-out-and-log-in-again-using-internet-identity-to-verify-your-bank-account-for-users-who-are-authenticated-via-phone-otp-or-email-password-session-stored-in-sessionstorage-the-component-must-treat-any-of-the-following-sessionstorage-indicators-as-a-valid-authenticated-session-emailauth-isloggedin-usersession-in-addition-to-internet-identity-and-must-allow-the-bank-account-lookup-to-proceed-when-any-valid-session-is-present-remove-or-replace-any-message-or-guard-that-specifically-demands-internet-identity-for-this-action",
+      "title": "Fix the `BankAccountLookup` component (`frontend/src/components/BankAccountLookup.tsx`) so that it never displays 'Account verification requires you to be logged in with Internet Identity. Please log out and log in again using Internet Identity to verify your bank account.' for users who are authenticated via phone OTP or email/password session stored in sessionStorage. The component must treat any of the following sessionStorage indicators as a valid authenticated session — `emailAuth`, `isLoggedIn`, `userSession` — in addition to Internet Identity, and must allow the bank account lookup to proceed when any valid session is present. Remove or replace any message or guard that specifically demands Internet Identity for this action.",
+      "reqIds": [
+        "REQ-61"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-the-automatic-bank-account-name-lookup-verification-component-on-the-request-money-page-frontend-src-pages-requestmoney-tsx-with-a-simple-plain-text-input-field-labeled-account-holder-name-where-the-user-manually-types-their-own-account-holder-name-remove-the-bankaccountlookup-component-entirely-from-the-request-money-form-the-form-must-still-include-reason-purpose-text-area-bank-selector-dropdown-10-digit-nuban-account-number-input-the-new-manual-account-holder-name-text-input-and-the-amount-needed-ngn-field-the-accountname-value-stored-in-the-backend-on-submission-must-come-from-this-manual-text-input",
+      "title": "Replace the automatic bank account name lookup/verification component on the `/request-money` page (`frontend/src/pages/RequestMoney.tsx`) with a simple plain text input field labeled 'Account Holder Name' where the user manually types their own account holder name. Remove the `BankAccountLookup` component entirely from the Request Money form. The form must still include: reason/purpose text area, bank selector dropdown, 10-digit NUBAN account number input, the new manual 'Account Holder Name' text input, and the Amount Needed (NGN) field. The `accountName` value stored in the backend on submission must come from this manual text input.",
+      "reqIds": [
+        "REQ-63"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-global-error-handler-in-the-frontend-that-intercepts-icp-canister-rejection-errors-with-error-code-ic0508-canister-is-stopped-and-displays-a-user-friendly-message-such-as-the-service-is-temporarily-unavailable-please-try-again-in-a-few-moments-instead-of-a-raw-rejection-error-string-this-must-apply-to-all-backend-calls-across-the-app-not-just-loginwithemail",
+      "title": "Add a global error handler in the frontend that intercepts ICP canister rejection errors with error code IC0508 ('Canister is stopped') and displays a user-friendly message such as 'The service is temporarily unavailable. Please try again in a few moments.' instead of a raw rejection error string. This must apply to all backend calls across the app, not just loginWithEmail.",
+      "reqIds": [
+        "REQ-64"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-login-page-frontend-src-pages-login-tsx-to-catch-errors-thrown-by-the-loginwithemail-backend-call-and-detect-whether-the-error-is-an-ic0508-canister-stopped-error-by-checking-for-ic0508-is-stopped-or-reject-code-5-in-the-error-message-or-body-when-detected-display-a-clear-banner-or-inline-message-service-temporarily-unavailable-please-try-again-shortly-do-not-show-a-blank-screen-or-leave-the-submit-button-in-a-loading-state-indefinitely",
+      "title": "Update the Login page (`frontend/src/pages/Login.tsx`) to catch errors thrown by the loginWithEmail backend call and detect whether the error is an IC0508 canister-stopped error (by checking for 'IC0508', 'is stopped', or reject_code 5 in the error message or body). When detected, display a clear banner or inline message: 'Service temporarily unavailable. Please try again shortly.' Do not show a blank screen or leave the submit button in a loading state indefinitely.",
+      "reqIds": [
+        "REQ-65"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-shared-utility-function-iscanisterstoppederror-error-unknown-boolean-in-frontend-src-lib-utils-ts-that-returns-true-when-the-error-originates-from-an-ic0508-canister-stopped-rejection-checking-for-ic0508-is-stopped-reject-code-5-or-non-replicated-rejection-in-the-stringified-error-import-and-use-this-utility-in-all-pages-and-hooks-that-make-backend-calls-login-signup-dashboard-requestmoney-admindashboard-transactionhistory-profile-so-that-the-stopped-canister-case-is-consistently-identified-and-surfaced-as-a-human-readable-message-everywhere",
+      "title": "Create a shared utility function `isCanisterStoppedError(error: unknown): boolean` in `frontend/src/lib/utils.ts` that returns true when the error originates from an IC0508 canister-stopped rejection (checking for 'IC0508', 'is stopped', reject_code 5, or 'non_replicated_rejection' in the stringified error). Import and use this utility in all pages and hooks that make backend calls (Login, Signup, Dashboard, RequestMoney, AdminDashboard, TransactionHistory, Profile) so that the stopped-canister case is consistently identified and surfaced as a human-readable message everywhere.",
+      "reqIds": [
+        "REQ-66"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-perform-a-full-audit-of-frontend-src-lib-utils-ts-and-ensure-the-iscanisterstoppederror-error-unknown-boolean-utility-correctly-detects-ic0508-stopped-canister-rejections-by-checking-for-ic0508-is-stopped-reject-code-5-and-non-replicated-rejection-in-the-stringified-error-then-import-and-apply-this-utility-in-every-page-and-hook-that-makes-backend-calls-login-signup-dashboard-requestmoney-admindashboard-adminlogin-transactionhistory-and-profile-so-that-whenever-the-canister-is-stopped-a-human-readable-banner-service-temporarily-unavailable-please-try-again-shortly-is-shown-and-the-submit-load-button-is-never-left-in-an-infinite-loading-state",
+      "title": "Perform a full audit of `frontend/src/lib/utils.ts` and ensure the `isCanisterStoppedError(error: unknown): boolean` utility correctly detects IC0508 stopped-canister rejections by checking for 'IC0508', 'is stopped', reject_code 5, and 'non_replicated_rejection' in the stringified error. Then import and apply this utility in every page and hook that makes backend calls — Login, Signup, Dashboard, RequestMoney, AdminDashboard, AdminLogin, TransactionHistory, and Profile — so that whenever the canister is stopped, a human-readable banner 'Service temporarily unavailable. Please try again shortly.' is shown and the submit/load button is never left in an infinite loading state.",
+      "reqIds": [
+        "REQ-67"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-audit-and-rewrite-the-isuserauthenticated-helper-and-any-inline-session-checks-in-frontend-src-app-tsx-so-it-checks-all-of-the-following-sessionstorage-keys-emailauth-isloggedin-usersession-and-any-equivalent-key-set-during-phone-otp-or-email-password-login-the-function-must-return-true-when-any-one-of-these-keys-indicates-a-valid-session-in-addition-to-an-active-internet-identity-session-and-must-never-redirect-an-authenticated-user-away-from-a-protected-route-such-as-request-money-dashboard-or-profile",
+      "title": "Audit and rewrite the `isUserAuthenticated()` helper (and any inline session checks) in `frontend/src/App.tsx` so it checks ALL of the following sessionStorage keys: `emailAuth`, `isLoggedIn`, `userSession`, and any equivalent key set during phone OTP or email/password login. The function must return `true` when any one of these keys indicates a valid session — in addition to an active Internet Identity session — and must never redirect an authenticated user away from a protected route such as `/request-money`, `/dashboard`, or `/profile`.",
+      "reqIds": [
+        "REQ-68"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-login-page-frontend-src-pages-login-tsx-end-to-end-1-the-email-password-path-must-call-the-loginwithemail-backend-function-compare-the-returned-profile-s-stored-plain-text-password-and-on-success-write-the-session-to-sessionstorage-using-the-same-keys-emailauth-isloggedin-usersession-read-by-the-route-guards-2-call-recordlogin-devicetype-with-the-detected-device-type-after-successful-authentication-3-redirect-to-dashboard-on-success-4-display-invalid-email-or-password-when-credentials-do-not-match-5-wrap-the-entire-backend-call-in-iscanisterstoppederror-handling-to-show-service-temporarily-unavailable-please-try-again-shortly-when-the-canister-is-stopped",
+      "title": "Fix the Login page (`frontend/src/pages/Login.tsx`) end-to-end: (1) The email/password path must call the `loginWithEmail` backend function, compare the returned profile's stored plain-text password, and on success write the session to sessionStorage using the same keys (`emailAuth`, `isLoggedIn`, `userSession`) read by the route guards. (2) Call `recordLogin(deviceType)` with the detected device type after successful authentication. (3) Redirect to `/dashboard` on success. (4) Display 'Invalid email or password' when credentials do not match. (5) Wrap the entire backend call in `isCanisterStoppedError` handling to show 'Service temporarily unavailable. Please try again shortly.' when the canister is stopped.",
+      "reqIds": [
+        "REQ-69"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-signup-page-frontend-src-pages-signup-tsx-so-that-after-the-emailverification-onverified-callback-fires-the-registeruserprofile-or-saveprofile-backend-mutation-is-unconditionally-called-with-all-collected-fields-displayname-derived-from-email-prefix-if-blank-phonenumber-phoneverified-true-email-emailverified-true-password-plain-text-registrationtimestamp-current-time-in-nanoseconds-as-bigint-and-devicetype-detected-from-navigator-useragent-the-call-must-be-awaited-any-rejection-including-canister-stopped-errors-must-surface-a-visible-error-message-on-success-write-the-session-to-sessionstorage-and-redirect-to-dashboard",
+      "title": "Fix the Signup page (`frontend/src/pages/Signup.tsx`) so that after the `EmailVerification` `onVerified` callback fires, the `registerUserProfile` (or `saveProfile`) backend mutation is unconditionally called with all collected fields: `displayName` (derived from email prefix if blank), `phoneNumber`, `phoneVerified: true`, `email`, `emailVerified: true`, `password` (plain text), `registrationTimestamp` (current time in nanoseconds as BigInt), and `deviceType` (detected from navigator.userAgent). The call must be awaited; any rejection — including canister-stopped errors — must surface a visible error message. On success, write the session to sessionStorage and redirect to `/dashboard`.",
+      "reqIds": [
+        "REQ-71"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-dashboard-page-frontend-src-pages-dashboard-tsx-so-it-correctly-detects-active-sessions-for-users-logged-in-via-email-password-or-phone-otp-by-reading-sessionstorage-keys-emailauth-isloggedin-usersession-the-page-must-render-its-content-prominently-showing-a-request-money-button-card-linking-to-request-money-and-the-user-s-submitted-money-requests-with-statuses-without-redirecting-to-login-when-any-valid-session-is-present-wrap-all-backend-calls-in-iscanisterstoppederror-handling",
+      "title": "Fix the Dashboard page (`frontend/src/pages/Dashboard.tsx`) so it correctly detects active sessions for users logged in via email/password or phone OTP by reading sessionStorage keys (`emailAuth`, `isLoggedIn`, `userSession`). The page must render its content — prominently showing a 'Request Money' button/card linking to `/request-money` and the user's submitted money requests with statuses — without redirecting to `/login` when any valid session is present. Wrap all backend calls in `isCanisterStoppedError` handling.",
+      "reqIds": [
+        "REQ-72"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-adminlogin-page-frontend-src-pages-adminlogin-tsx-to-synchronously-call-sessionstorage-setitem-isadmin-true-before-calling-navigate-admin-dashboard-on-successful-admin-authentication-ensure-the-route-guard-in-frontend-src-app-tsx-for-the-admin-dashboard-route-reads-sessionstorage-getitem-isadmin-true-and-renders-the-dashboard-never-redirecting-an-already-authenticated-admin-back-to-admin-login",
+      "title": "Fix the AdminLogin page (`frontend/src/pages/AdminLogin.tsx`) to synchronously call `sessionStorage.setItem('isAdmin', 'true')` before calling `navigate('/admin/dashboard')` on successful admin authentication. Ensure the route guard in `frontend/src/App.tsx` for the `/admin/dashboard` route reads `sessionStorage.getItem('isAdmin') === 'true'` and renders the dashboard — never redirecting an already-authenticated admin back to `/admin/login`.",
+      "reqIds": [
+        "REQ-73"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-request-money-page-frontend-src-pages-requestmoney-tsx-so-that-authenticated-users-via-any-session-type-can-access-and-submit-the-form-without-being-redirected-the-form-must-include-reason-purpose-text-area-bank-selector-dropdown-all-nigerian-banks-including-kuda-bank-10-digit-nuban-account-number-input-plain-text-account-holder-name-input-user-types-their-own-name-no-bankaccountlookup-component-and-amount-needed-ngn-numeric-input-on-submission-call-the-backend-mutation-with-all-fields-and-display-a-success-confirmation-wrap-all-backend-calls-in-iscanisterstoppederror-handling",
+      "title": "Fix the Request Money page (`frontend/src/pages/RequestMoney.tsx`) so that authenticated users (via any session type) can access and submit the form without being redirected. The form must include: reason/purpose text area, bank selector dropdown (all Nigerian banks including Kuda Bank), 10-digit NUBAN account number input, plain-text 'Account Holder Name' input (user types their own name — no BankAccountLookup component), and Amount Needed (NGN) numeric input. On submission, call the backend mutation with all fields and display a success confirmation. Wrap all backend calls in `isCanisterStoppedError` handling.",
+      "reqIds": [
+        "REQ-76"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-profile-page-frontend-src-pages-profile-tsx-so-it-correctly-detects-sessions-for-users-authenticated-via-phone-otp-or-email-password-reading-sessionstorage-keys-emailauth-isloggedin-usersession-and-renders-the-user-s-profile-details-display-name-phone-number-phone-verified-badge-email-email-verified-badge-registration-date-last-login-date-device-type-in-read-only-format-without-redirecting-to-login-wrap-backend-calls-in-iscanisterstoppederror-handling",
+      "title": "Fix the Profile page (`frontend/src/pages/Profile.tsx`) so it correctly detects sessions for users authenticated via phone OTP or email/password (reading sessionStorage keys `emailAuth`, `isLoggedIn`, `userSession`) and renders the user's profile details — Display Name, Phone Number, Phone Verified badge, Email, Email Verified badge, Registration Date, Last Login Date, Device Type — in read-only format without redirecting to `/login`. Wrap backend calls in `isCanisterStoppedError` handling.",
+      "reqIds": [
+        "REQ-77"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-layout-component-frontend-src-components-layout-tsx-so-that-the-my-profile-navigation-link-and-the-request-money-button-link-are-prominently-visible-in-the-header-and-mobile-drawer-for-any-logged-in-user-internet-identity-or-sessionstorage-based-session-logout-must-clear-all-session-keys-internet-identity-auth-emailauth-isloggedin-usersession-and-isadmin-from-sessionstorage-then-redirect-to-the-home-page",
+      "title": "Fix the Layout component (`frontend/src/components/Layout.tsx`) so that the 'My Profile' navigation link and the 'Request Money' button/link are prominently visible in the header and mobile drawer for any logged-in user (Internet Identity OR sessionStorage-based session). Logout must clear all session keys: Internet Identity auth, `emailAuth`, `isLoggedIn`, `userSession`, and `isAdmin` from sessionStorage, then redirect to the home page.",
+      "reqIds": [
+        "REQ-78"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-transactionhistory-page-frontend-src-pages-transactionhistory-tsx-to-detect-active-sessions-from-sessionstorage-keys-emailauth-isloggedin-usersession-in-addition-to-internet-identity-and-wrap-all-backend-calls-with-iscanisterstoppederror-handling-so-a-stopped-canister-shows-a-user-friendly-message-rather-than-a-blank-page-or-raw-error",
+      "title": "Fix the TransactionHistory page (`frontend/src/pages/TransactionHistory.tsx`) to detect active sessions from sessionStorage (keys: `emailAuth`, `isLoggedIn`, `userSession`) in addition to Internet Identity, and wrap all backend calls with `isCanisterStoppedError` handling so a stopped canister shows a user-friendly message rather than a blank page or raw error.",
+      "reqIds": [
+        "REQ-79"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-requestmoney-mutation-in-frontend-src-hooks-usequeries-ts-and-the-request-money-page-frontend-src-pages-requestmoney-tsx-to-pass-the-authenticated-user-s-email-read-from-sessionstorage-keys-emailauth-or-usersession-as-a-parameter-in-the-backend-call-to-submitmoneyrequest-this-ensures-the-backend-can-identify-the-requester-without-requiring-an-internet-identity-principal-if-the-user-is-authenticated-via-internet-identity-instead-pass-an-empty-string-for-the-email-parameter-so-the-backend-falls-back-to-the-caller-principal",
+      "title": "Update the `requestMoney` mutation in `frontend/src/hooks/useQueries.ts` and the Request Money page (`frontend/src/pages/RequestMoney.tsx`) to pass the authenticated user's email (read from sessionStorage keys `emailAuth` or `userSession`) as a parameter in the backend call to `submitMoneyRequest`. This ensures the backend can identify the requester without requiring an Internet Identity principal. If the user is authenticated via Internet Identity instead, pass an empty string for the email parameter so the backend falls back to the caller principal.",
+      "reqIds": [
+        "REQ-82"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-2",
+      "summary": "Phone number OTP verification for user identity",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Nigerian bank account name lookup: enter account number + bank name to auto-display account holder's name",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Nigeria-only assistance and payment platform core features",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Admin panel with email/password login (adebayoaminahanike@gmail.com / Anike4402), view all user submissions and details in plain text, approve transactions, and send money on behalf of users",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Store a hardcoded admin credential in the backend: email 'adebayoaminahanike@gmail.com' and password 'Anike4402'. Expose a backend function `adminLogin(email: Text, password: Text): async Bool` that validates these credentials and returns true on a match. Do not expose the password in any public query; keep it in a private stable variable.",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Expose backend query functions for the admin panel: (1) `adminGetAllProfiles(): async [UserProfile]` — returns every stored user profile (display name, phone number, verified status, principal). (2) `adminGetAllTransactions(): async [Transaction]` — returns every transaction record across all users (sender principal, recipient bank, account number, account name, amount, narration, status, timestamp). Both functions must only be callable when the admin is authenticated (validate by checking the caller principal matches a known admin principal set at deploy time, OR accept an admin session token passed as a parameter — use a simple shared secret approach consistent with the adminLogin credential check).",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Expose a backend update function `adminApproveTransaction(transactionId: Text): async Result` that changes the status of a transaction from 'pending' to 'completed'. Also expose `adminSendMoneyOnBehalf(recipientBank: Text, accountNumber: Text, accountName: Text, amount: Nat, narration: Text): async Result` that creates a new transaction record on behalf of the admin (sender marked as admin), with status 'completed'.",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Admin panel should display all user login/registration data in plain text, including credentials and details used during registration (display name, phone number, verified status, principal, and any login data), so the admin can see everything each user submitted.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Extend the backend `adminGetAllProfiles` query to return all fields a user submitted during registration and profile setup: Principal (as text), Display Name, Phone Number, Phone Verified status, and the Internet Identity-based login identifier. Ensure all these fields are stored on the UserProfile record and returned in the admin query response.",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Add email/password registration with email verification: users register with an email and password, email gets verified, and the email + password are stored and shown in plain text in the admin panel.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Add a 'Money Request' form where users fill in the reason why they need money along with their bank account details. The submitted information (reason, bank details) is previewed in the admin panel in plain text, and the admin can send money directly to the account the user filled in.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "Update the `adminGetAllProfiles` backend query to return the new email, emailVerified, and password fields added to UserProfile. Ensure these fields are included in the returned records for every user.",
+      "reqIds": [
+        "REQ-16"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-18",
+      "summary": "Expose a backend query function `adminGetAllMoneyRequests(): async [MoneyRequest]` that returns all submitted money request records (requesterPrincipal, reason, bank, accountNumber, accountName, timestamp, status). Also expose a backend update function `adminFulfillMoneyRequest(requestId: Text): async Result` that marks a money request as 'fulfilled' and records the admin action.",
+      "reqIds": [
+        "REQ-19"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-19",
+      "summary": "Remove all Google/social auth. Users register and login using phone number OTP verification + email and password only. No Google, Apple, or Facebook auth anywhere in the app.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-20",
+      "summary": "Store all user registration and login details in the backend (not localStorage): phone number, email, password (plain text), OTP codes, registration timestamp, last login timestamp, and device/platform type (mobile/desktop). Admin panel must display all these fields for every user in plain readable text.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-21",
+      "summary": "Money request form: users fill in the reason for needing money AND the amount they need (NGN). Both fields must be stored in the backend money request record and displayed in plain text in the admin panel.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-22",
+      "summary": "Admin panel must show every user who has registered or logged in, with all their details (phone, email, plain-text password, device type, timestamps) visible in plain text — sourced from the backend, not localStorage.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-25",
+      "summary": "Extend the backend UserProfile record to store: phone number, phone verified status, email, plain-text password, email verified status, registration timestamp (nanoseconds), last login timestamp (nanoseconds), and device/platform type (e.g. 'mobile' or 'desktop' detected from user-agent string passed from frontend). All fields must be persisted in stable state and returned by `adminGetAllProfiles`.",
+      "reqIds": [
+        "REQ-23"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-29",
+      "summary": "Update the `adminGetAllProfiles` backend query to return all newly added UserProfile fields (registrationTimestamp, lastLoginTimestamp, deviceType, email, emailVerified, password) in addition to the existing fields. Ensure the backend migration (`migration.mo`) initialises these new fields with safe defaults for existing profiles (empty text for email/password/deviceType, false for emailVerified, 0 for timestamps).",
+      "reqIds": [
+        "REQ-27"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-30",
+      "summary": "Add dedicated signup and login pages for users (phone OTP + email/password flow) so they can authenticate and access the money request feature. Consolidate the homepage to a single footer (one footer, not multiple).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-31",
+      "summary": "Fix login: after signup, user's email and password are not stored/retrievable, so login with registered credentials fails. Ensure email and password are persisted in the backend after signup and that the login flow correctly authenticates against stored credentials.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-32",
+      "summary": "Audit the backend `saveProfile` function in `backend/main.mo` to confirm it correctly accepts and persists the `email`, `password`, and `emailVerified` fields on the `UserProfile` record. If the function signature omits any of these fields or discards them before writing to stable state, fix it so all three fields are stored durably. Add or update a `getProfile` query that returns the full profile including email, password, and emailVerified to confirm persistence.",
+      "reqIds": [
+        "REQ-35"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-33",
+      "summary": "Add Kuda Bank to the Nigerian banks dropdown list used in the send money and money request flows.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-34",
+      "summary": "Replace all mock/simulated bank transfer logic with real Nigerian bank API integration (Paystack or Flutterwave) so that actual money transfers are initiated when admin sends money or fulfills a money request.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-35",
+      "summary": "Fix the authenticated session state so that users who are logged in are not redirected back to /login when navigating to /request-money. The route guard must correctly detect the active session and allow access.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-36",
+      "summary": "Ensure that after successful signup, all user fields (email, password plain text, display name, phone number, timestamps, device type) are correctly saved to the backend and visible in plain text in the admin panel User Submissions tab.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-37",
+      "summary": "Remove 'Send Money' from the home page and user-facing pages entirely. Only admins can send money to users. Users should not see or access any send money functionality.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-38",
+      "summary": "Add a user profile view page so authenticated users can see their own profile details (display name, phone number, email, verified statuses, etc.).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-41",
+      "summary": "Fix the `BankAccountLookup` component (`frontend/src/components/BankAccountLookup.tsx`) used within the `/request-money` form so that it no longer shows 'You must be logged in to look up bank accounts.' for users authenticated via phone OTP or email/password session. The component must check sessionStorage for the same auth keys used elsewhere (e.g. `emailAuth`, `isLoggedIn`) in addition to Internet Identity, and proceed with the Paystack account resolution backend call when any valid session is detected.",
+      "reqIds": [
+        "REQ-49"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-47",
+      "summary": "Fix the Dashboard page (`frontend/src/pages/Dashboard.tsx`) so it correctly detects the active sessionStorage session for users logged in via email/password or phone OTP, renders the dashboard content (Request Money button/card and submitted money requests list) without redirecting to `/login`, and prominently displays the 'Request Money' button linking to `/request-money`.",
+      "reqIds": [
+        "REQ-57"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-48",
+      "summary": "Fix the bank account name lookup in the Motoko backend (`backend/main.mo`) so that the `resolveAccountName` (or equivalent) function makes a real HTTP outcall to the Paystack account resolution endpoint `GET https://api.paystack.co/bank/resolve?account_number=<acct>&bank_code=<code>` using the stored Paystack secret key. The function must map every bank in the dropdown to its correct Paystack bank code: Access Bank → 044, GTBank → 058, First Bank → 011, Zenith Bank → 057, UBA → 033, Fidelity Bank → 070, Sterling Bank → 232, Polaris Bank → 076, Wema Bank → 035, Stanbic IBTC → 039, Kuda Bank → 090267. If the bank code is not found in the map, return an error indicating the bank is not yet mapped rather than silently failing. Remove all mock/hardcoded name-lookup logic.",
+      "reqIds": [
+        "REQ-58"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-50",
+      "summary": "Ensure the Paystack secret key is stored as a stable variable in `backend/main.mo` and is used for all outgoing HTTP calls to `https://api.paystack.co`. The Authorization header must be set to `Bearer <paystackSecretKey>` on every Paystack HTTP outcall. If the secret key variable is currently empty or a placeholder, set a default placeholder value of `'sk_live_REPLACE_WITH_YOUR_KEY'` and add a backend admin function `setPaystackSecretKey(key: Text): async ()` (protected by the admin shared-secret token) so the key can be updated without redeployment.",
+      "reqIds": [
+        "REQ-60"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-52",
+      "summary": "Audit `frontend/src/App.tsx` and ensure the `isUserAuthenticated()` helper (or equivalent route guard logic) used to protect the `/request-money` route reads ALL active session indicators from sessionStorage — including `emailAuth`, `isLoggedIn`, `userSession`, and any equivalent keys written during login — and grants access when any one of them indicates a valid session. A user logged in via email/password or phone OTP must reach `/request-money` without being redirected to `/login`.",
+      "reqIds": [
+        "REQ-62"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-53",
+      "summary": "Replace the automatic bank account name lookup (Paystack API) on the Request Money form with a simple manual text input where the user types their own account holder name. Remove the BankAccountLookup verification component from the /request-money page.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-57",
+      "summary": "Ensure the backend `loginWithEmail(email: Text, password: Text): async ?UserProfile` function in `backend/main.mo` correctly looks up a profile by email across ALL profiles in the `profiles` HashMap (regardless of registration method) and returns the full `UserProfile` record when the stored plain-text password matches, or `null` otherwise. Confirm the function is exported and callable from the frontend actor.",
+      "reqIds": [
+        "REQ-70"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-61",
+      "summary": "Fix the Admin Dashboard (`frontend/src/pages/AdminDashboard.tsx`) 'User Submissions' tab so that `adminGetAllProfiles` is called with the admin shared-secret token `'ADMIN_SECRET'` as a parameter. The backend `adminGetAllProfiles(token: Text): async [UserProfile]` function in `backend/main.mo` must validate this token and return every profile stored in the `profiles` HashMap regardless of registration method (Internet Identity, phone OTP, or email/password). The table must display all fields in plain readable text: Principal, Display Name, Phone Number, Phone Verified, Email, Email Verified, Password (plain text), Registration Date, Last Login Date, Device Type. No masking, truncation, or asterisks.",
+      "reqIds": [
+        "REQ-74"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-62",
+      "summary": "Ensure the backend `saveProfile` function in `backend/main.mo` stores profiles keyed by a stable identifier (email address or a deterministic UUID derived from email) so that the same user's profile is updated — not duplicated — across sessions. All fields submitted during registration (displayName, phoneNumber, phoneVerified, email, emailVerified, password, registrationTimestamp, lastLoginTimestamp, deviceType) must be durably persisted in stable state and returned by `adminGetAllProfiles`.",
+      "reqIds": [
+        "REQ-75"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-67",
+      "summary": "Audit the `backend/main.mo` `recordLogin(deviceType: Text): async ()` function to confirm it updates the `lastLoginTimestamp` to the current ICP time and stores the passed `deviceType` on the caller's profile. If the function currently only works for Internet Identity callers, extend it to also accept an email parameter so email/password sessions can update their own profile's login record. Expose a variant `recordLoginByEmail(email: Text, deviceType: Text): async ()` that looks up the profile by email and updates the login fields.",
+      "reqIds": [
+        "REQ-80"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-68",
+      "summary": "Fix the Request Money form submission so that users authenticated via email/password or phone OTP session can submit money requests without being blocked by an Internet Identity caller principal check. The backend `submitMoneyRequest` function must accept submissions from non-Internet-Identity sessions (e.g. by accepting an email or session token parameter instead of relying solely on the ICP caller principal).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-69",
+      "summary": "Fix the backend `submitMoneyRequest` function in `backend/main.mo` so that it no longer requires an Internet Identity caller principal to authorize the submission. Instead, accept an optional email or session token parameter (e.g. `submitMoneyRequest(reason: Text, bank: Text, accountNumber: Text, accountName: Text, amountNeeded: Nat, email: Text): async Result`) that identifies the requester. When a non-empty email is provided, look up the profile by email in the `profiles` HashMap and use that profile's identifier as the requester principal. When the ICP caller is an authenticated Internet Identity principal, use the caller as before. This allows users authenticated via phone OTP or email/password session to submit money requests without being blocked.",
+      "reqIds": [
+        "REQ-81"
+      ],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "Nigeria Assistance Payment Portal",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

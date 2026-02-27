@@ -1,0 +1,61 @@
+{
+  "kind": "build_request",
+  "title": "Fix Request Money submission blocked by Internet Identity principal check",
+  "projectName": "NigeriaPay",
+  "priority": "high",
+  "requirements": [
+    {
+      "id": "REQ-81",
+      "text": "Fix the backend `submitMoneyRequest` function in `backend/main.mo` so that it no longer requires an Internet Identity caller principal to authorize the submission. Instead, accept an optional email or session token parameter (e.g. `submitMoneyRequest(reason: Text, bank: Text, accountNumber: Text, accountName: Text, amountNeeded: Nat, email: Text): async Result`) that identifies the requester. When a non-empty email is provided, look up the profile by email in the `profiles` HashMap and use that profile's identifier as the requester principal. When the ICP caller is an authenticated Internet Identity principal, use the caller as before. This allows users authenticated via phone OTP or email/password session to submit money requests without being blocked.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-latest"
+        ],
+        "quotes": [
+          "Submit button is just rolling and then it popup logged in with Internet Identity to Submit",
+          "Request Money form submit button spins indefinitely and then shows 'logged in with Internet Identity to Submit' popup — the backend submitMoneyRequest function requires an Internet Identity caller principal, blocking email/password and phone OTP authenticated users from submitting."
+        ]
+      },
+      "acceptanceCriteria": [
+        "The backend `submitMoneyRequest` function accepts an email parameter in addition to (or instead of) relying solely on the ICP caller principal.",
+        "When a valid email is passed and a matching profile exists in the `profiles` HashMap, the money request is stored with that profile's identifier as the requester.",
+        "When called by an Internet Identity principal (anonymous or identified), the existing behaviour is preserved.",
+        "The function does not return an Internet Identity authorization error for callers authenticated via email/password or phone OTP."
+      ]
+    },
+    {
+      "id": "REQ-82",
+      "text": "Update the `requestMoney` mutation in `frontend/src/hooks/useQueries.ts` and the Request Money page (`frontend/src/pages/RequestMoney.tsx`) to pass the authenticated user's email (read from sessionStorage keys `emailAuth` or `userSession`) as a parameter in the backend call to `submitMoneyRequest`. This ensures the backend can identify the requester without requiring an Internet Identity principal. If the user is authenticated via Internet Identity instead, pass an empty string for the email parameter so the backend falls back to the caller principal.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-latest"
+        ],
+        "quotes": [
+          "Submit button is just rolling and then it popup logged in with Internet Identity to Submit"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The `requestMoney` mutation call includes the user's email retrieved from sessionStorage (`emailAuth` or `userSession`) as an argument.",
+        "After a successful submission, a success confirmation is displayed and the submit button returns to its normal (non-loading) state.",
+        "The submit button never spins indefinitely — any backend error (including canister-stopped errors detected via `isCanisterStoppedError`) surfaces a visible error message and re-enables the button.",
+        "No Internet Identity popup or prompt appears during the submission flow for users authenticated via email/password or phone OTP."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not change the MoneyRequest data model fields — only the authorization/identification mechanism of the submission function.",
+    "Do not remove or break the existing Internet Identity-based submission path.",
+    "All sessionStorage key reads must use the same keys already established across the app: `emailAuth`, `isLoggedIn`, `userSession`."
+  ],
+  "nonGoals": [
+    "Changing the money request form fields or UI layout.",
+    "Modifying the admin dashboard or money requests tab.",
+    "Any changes to the bank dropdown or account holder name input."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

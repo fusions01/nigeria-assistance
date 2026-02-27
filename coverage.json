@@ -1,0 +1,53 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-25T14:32:23.807Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 2,
+    "implemented": 1,
+    "items": [
+      {
+        "id": "REQ-81",
+        "summary": "Fix the backend `submitMoneyRequest` function in `backend/main.mo` so that it no longer requires an Internet Identity caller principal to authorize the submission. Instead, accept an optional email or session token parameter (e.g. `submitMoneyRequest(reason: Text, bank: Text, accountNumber: Text, accountName: Text, amountNeeded: Nat, email: Text): async Result`) that identifies the requester. When a non-empty email is provided, look up the profile by email in the `profiles` HashMap and use that profile's identifier as the requester principal. When the ICP caller is an authenticated Internet Identity principal, use the caller as before. This allows users authenticated via phone OTP or email/password session to submit money requests without being blocked.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-82",
+        "summary": "Update the `requestMoney` mutation in `frontend/src/hooks/useQueries.ts` and the Request Money page (`frontend/src/pages/RequestMoney.tsx`) to pass the authenticated user's email (read from sessionStorage keys `emailAuth` or `userSession`) as a parameter in the backend call to `submitMoneyRequest`. This ensures the backend can identify the requester without requiring an Internet Identity principal. If the user is authenticated via Internet Identity instead, pass an empty string for the email parameter so the backend falls back to the caller principal.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/pages/RequestMoney.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/pages/RequestMoney.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "backend/main.mo",
+    "backend/migration.mo",
+    "build-request.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/RequestMoney.tsx",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Fix Request Money submission blocked by Internet Identity principal check",
+  "requirements": [
+    {
+      "id": "REQ-82",
+      "summary": "Update Request Money page and mutation to pass authenticated user's email to backend, enabling submission for email/password and phone OTP authenticated users",
+      "acceptanceCriteria": [
+        "The `requestMoney` mutation call includes the user's email retrieved from sessionStorage (`emailAuth` or `userSession`) as an argument.",
+        "After a successful submission, a success confirmation is displayed and the submit button returns to its normal (non-loading) state.",
+        "The submit button never spins indefinitely — any backend error (including canister-stopped errors detected via `isCanisterStoppedError`) surfaces a visible error message and re-enables the button.",
+        "No Internet Identity popup or prompt appears during the submission flow for users authenticated via email/password or phone OTP."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Modify the `requestMoney` mutation to accept an email parameter and pass it to the backend `submitMoneyRequest` call. Retrieve the email from sessionStorage keys `emailAuth` or `userSession` (parse JSON if needed) within the mutation function. If the user is authenticated via Internet Identity instead, pass an empty string for the email parameter so the backend falls back to the caller principal. Ensure error handling displays visible error messages and never leaves the submit button in a loading state indefinitely."
+        },
+        {
+          "path": "frontend/src/pages/RequestMoney.tsx",
+          "operation": "modify",
+          "description": "Update the Request Money page to read the authenticated user's email from sessionStorage (using keys `emailAuth` or `userSession`) and pass it to the `requestMoney` mutation. Ensure the submit button loading state is properly managed: reset the button to normal state after successful submission or any error (including canister-stopped errors detected via `isCanisterStoppedError`). Add visible error message display for all backend errors, ensuring no Internet Identity popup appears during submission for email/password or phone OTP authenticated users. Verify that the success confirmation is displayed after a successful submission."
+        }
+      ]
+    }
+  ]
+}
